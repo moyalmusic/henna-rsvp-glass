@@ -201,7 +201,7 @@ const RsvpPage = () => {
       </div>
       
       {/* Powered by footer */}
-      <div className="mt-6 text-white text-opacity-80 text-sm">
+      <div className="mt-6 text-black text-sm">
         Powered by Lior Moyal
       </div>
     </div>
