@@ -13,35 +13,54 @@ const RsvpPage = () => {
   const [numberOfGuests, setNumberOfGuests] = useState(1);
   const [submitted, setSubmitted] = useState(false);
   const [confirmationImage, setConfirmationImage] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (guestId) {
-      const foundGuest = getGuestById(guestId);
-      
-      if (foundGuest) {
-        setGuest(foundGuest);
-        setAttending(foundGuest.attending);
-        setNumberOfGuests(foundGuest.numberOfGuests || 1);
-        setSubmitted(foundGuest.answered || false);
+      try {
+        const foundGuest = getGuestById(guestId);
+        
+        if (foundGuest) {
+          setGuest(foundGuest);
+          setAttending(foundGuest.attending);
+          setNumberOfGuests(foundGuest.numberOfGuests || 1);
+          setSubmitted(foundGuest.answered || false);
+        } else {
+          setError('אורח לא נמצא');
+        }
+        
+        // Load confirmation image
+        const image = getConfirmationImage();
+        setConfirmationImage(image);
+      } catch (e) {
+        console.error('Error loading guest:', e);
+        setError('אירעה שגיאה בטעינת פרטי האורח');
+      } finally {
+        setLoading(false);
       }
-      
-      // Load confirmation image
-      const image = getConfirmationImage();
-      setConfirmationImage(image);
+    } else {
+      setError('מזהה אורח חסר');
+      setLoading(false);
     }
   }, [guestId]);
 
   const handleSubmit = (isAttending: boolean) => {
     if (!guestId) return;
     
-    updateGuestAttendance(guestId, isAttending, isAttending ? numberOfGuests : 0);
-    setAttending(isAttending);
-    setSubmitted(true);
-    
-    // Refresh guest data after update
-    const updatedGuest = getGuestById(guestId);
-    if (updatedGuest) {
-      setGuest(updatedGuest);
+    try {
+      updateGuestAttendance(guestId, isAttending, isAttending ? numberOfGuests : 0);
+      setAttending(isAttending);
+      setSubmitted(true);
+      
+      // Refresh guest data after update
+      const updatedGuest = getGuestById(guestId);
+      if (updatedGuest) {
+        setGuest(updatedGuest);
+      }
+    } catch (e) {
+      console.error('Error updating attendance:', e);
+      setError('אירעה שגיאה בעדכון הנוכחות');
     }
   };
 
@@ -49,16 +68,34 @@ const RsvpPage = () => {
     setNumberOfGuests(num);
     
     if (attending === true && guestId) {
-      updateGuestAttendance(guestId, true, num);
+      try {
+        updateGuestAttendance(guestId, true, num);
+      } catch (e) {
+        console.error('Error updating number of guests:', e);
+      }
     }
   };
 
-  if (!guest) {
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[url('/henna-pattern.svg')] bg-cover">
         <div className="p-8 rounded-xl bg-white bg-opacity-20 backdrop-blur-lg border border-white border-opacity-20 shadow-xl w-full max-w-md">
           <div className="text-center">
-            <h2 className="text-2xl font-bold text-gray-800 mb-4">אורח לא נמצא</h2>
+            <h2 className="text-2xl font-bold text-gray-800 mb-4">טוען...</h2>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !guest) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[url('/henna-pattern.svg')] bg-cover">
+        <div className="p-8 rounded-xl bg-white bg-opacity-20 backdrop-blur-lg border border-white border-opacity-20 shadow-xl w-full max-w-md">
+          <div className="text-center">
+            <h2 className="text-2xl font-bold text-gray-800 mb-4">
+              {error || 'אורח לא נמצא'}
+            </h2>
             <p className="text-gray-600 mb-6">
               לא נמצא אורח עם המזהה שסופק. אנא וודאו שהקישור שקיבלתם תקין.
             </p>
