@@ -10,3 +10,9 @@ export interface Guest {
 }
 
 export type AttendanceStatus = 'attending' | 'notAttending' | 'notAnswered';
+
+export interface AppSettings {
+  confirmationImage?: string;
+  whatsappTemplate: string;
+  groups: string[];
+}

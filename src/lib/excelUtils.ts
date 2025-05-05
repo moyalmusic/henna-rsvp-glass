@@ -1,6 +1,7 @@
 
 import { Guest } from "@/types";
 import * as XLSX from 'xlsx';
+import { replaceAllGuests } from "@/lib/localStorage";
 
 // Function to import guests from Excel file
 export const importGuestsFromExcel = (file: File): Promise<Guest[]> => {
@@ -20,9 +21,9 @@ export const importGuestsFromExcel = (file: File): Promise<Guest[]> => {
         // Map to our Guest interface
         const guests: Guest[] = jsonData.map((row: any, index) => ({
           id: row.id || `guest${Date.now() + index}`,
-          name: row.name || '',
-          phone: row.phone || '',
-          group: row.group || '',
+          name: row.name || row['שם מלא'] || '',
+          phone: row.phone || row['טלפון'] || '',
+          group: row.group || row['קבוצה'] || '',
           attending: null,
           numberOfGuests: 1,
           answered: false

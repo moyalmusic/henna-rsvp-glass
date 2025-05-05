@@ -1,10 +1,14 @@
-
-import { Guest } from "@/types";
+import { Guest, AppSettings } from "@/types";
 
 // Mock database using localStorage
 const GUESTS_KEY = 'henna-guests';
 const DEFAULT_WHATSAPP_MESSAGE = 'היי [שם], נשמח לראות אותך באירוע החינה שלנו! אנא אשר/י הגעה כאן: [לינק אישי]';
 const WHATSAPP_MESSAGE_KEY = 'henna-whatsapp-message';
+const CONFIRMATION_IMAGE_KEY = 'henna-confirmation-image';
+const GROUPS_KEY = 'henna-groups';
+
+// Default groups
+const DEFAULT_GROUPS = ['משפחה', 'חברים', 'עבודה'];
 
 // Initialize with some mock data if empty
 const initializeGuestsIfEmpty = () => {
@@ -44,6 +48,10 @@ const initializeGuestsIfEmpty = () => {
   
   if (!localStorage.getItem(WHATSAPP_MESSAGE_KEY)) {
     localStorage.setItem(WHATSAPP_MESSAGE_KEY, DEFAULT_WHATSAPP_MESSAGE);
+  }
+
+  if (!localStorage.getItem(GROUPS_KEY)) {
+    localStorage.setItem(GROUPS_KEY, JSON.stringify(DEFAULT_GROUPS));
   }
 };
 
@@ -112,8 +120,31 @@ export const deleteGuest = (id: string): void => {
 };
 
 // Replace all guests (for import functionality)
-export const replaceAllGuests = (guests: Guest[]): void => {
-  localStorage.setItem(GUESTS_KEY, JSON.stringify(guests));
+export const replaceAllGuests = (newGuests: Guest[]): void => {
+  const currentGuests = getGuests();
+  
+  // Create a map of existing guests by phone number for quick lookup
+  const existingGuestsMap = new Map();
+  currentGuests.forEach(guest => {
+    existingGuestsMap.set(guest.phone, guest);
+  });
+  
+  // Merge new guests with existing ones
+  newGuests.forEach(newGuest => {
+    const existingGuest = existingGuestsMap.get(newGuest.phone);
+    if (existingGuest) {
+      // If guest already exists, update phone (which is our key) from the map
+      existingGuestsMap.delete(newGuest.phone);
+    }
+    // Add the new guest to the map with the potentially updated phone
+    existingGuestsMap.set(newGuest.phone, newGuest);
+  });
+  
+  // Convert map values back to array
+  const mergedGuests = Array.from(existingGuestsMap.values());
+  
+  // Save the merged guests
+  localStorage.setItem(GUESTS_KEY, JSON.stringify(mergedGuests));
 };
 
 // Get WhatsApp message template
@@ -125,6 +156,34 @@ export const getWhatsAppMessageTemplate = (): string => {
 // Update WhatsApp message template
 export const updateWhatsAppMessageTemplate = (message: string): void => {
   localStorage.setItem(WHATSAPP_MESSAGE_KEY, message);
+};
+
+// Confirmation image functions
+export const getConfirmationImage = (): string | null => {
+  return localStorage.getItem(CONFIRMATION_IMAGE_KEY);
+};
+
+export const updateConfirmationImage = (imageDataUrl: string): void => {
+  localStorage.setItem(CONFIRMATION_IMAGE_KEY, imageDataUrl);
+};
+
+// Groups functions
+export const getGroups = (): string[] => {
+  initializeGuestsIfEmpty();
+  const groups = localStorage.getItem(GROUPS_KEY);
+  return groups ? JSON.parse(groups) : DEFAULT_GROUPS;
+};
+
+export const updateGroups = (groups: string[]): void => {
+  localStorage.setItem(GROUPS_KEY, JSON.stringify(groups));
+};
+
+export const addGroup = (group: string): void => {
+  const groups = getGroups();
+  if (!groups.includes(group)) {
+    groups.push(group);
+    updateGroups(groups);
+  }
 };
 
 // Get stats

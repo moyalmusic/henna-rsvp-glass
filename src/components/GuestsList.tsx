@@ -1,6 +1,5 @@
-
 import { useState, useEffect } from 'react';
-import { getGuests, updateGuest, deleteGuest, getStats } from '@/lib/localStorage';
+import { getGuests, updateGuest, deleteGuest, getStats, getWhatsAppMessageTemplate } from '@/lib/localStorage';
 import { Guest, AttendanceStatus } from '@/types';
 import { importGuestsFromExcel, exportGuestsToExcel } from '@/lib/excelUtils';
 import { useToast } from '@/components/ui/use-toast';
@@ -179,8 +178,15 @@ const GuestsList = () => {
 
   const generateWhatsAppLink = (guest: Guest) => {
     const baseUrl = 'https://api.whatsapp.com/send';
-    const message = `היי ${guest.name}, נשמח לראות אותך באירוע החינה שלנו! אנא אשר/י הגעה כאן: ${window.location.origin}/rsvp/${guest.id}`;
-    return `${baseUrl}?phone=${guest.phone.replace(/[-\s]/g, '')}&text=${encodeURIComponent(message)}`;
+    const formattedPhone = guest.phone.replace(/[-\s\(\)]/g, '');
+    const template = getWhatsAppMessageTemplate();
+    const personalLink = `${window.location.origin}/rsvp/${guest.id}`;
+    
+    let message = template
+      .replace('[שם]', guest.name)
+      .replace('[לינק אישי]', personalLink);
+    
+    return `${baseUrl}?phone=${formattedPhone}&text=${encodeURIComponent(message)}`;
   };
 
   return (

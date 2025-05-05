@@ -1,10 +1,18 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Guest } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { DialogFooter } from '@/components/ui/dialog';
+import { getGroups } from '@/lib/localStorage';
+import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface GuestEditFormProps {
   guest: Guest;
@@ -21,15 +29,31 @@ const GuestEditForm = ({ guest, onSave, onCancel }: GuestEditFormProps) => {
     guest.attending ? 'attending' : 'notAttending'
   );
   const [numberOfGuests, setNumberOfGuests] = useState(guest.numberOfGuests);
+  const [groups, setGroups] = useState<string[]>([]);
+  const [customGroup, setCustomGroup] = useState('');
+  const [isCustomGroup, setIsCustomGroup] = useState(false);
+
+  useEffect(() => {
+    const availableGroups = getGroups();
+    setGroups(availableGroups);
+    
+    // Check if guest's group is in the available groups
+    if (guest.group && !availableGroups.includes(guest.group)) {
+      setIsCustomGroup(true);
+      setCustomGroup(guest.group);
+    }
+  }, [guest.group]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    const finalGroup = isCustomGroup ? customGroup : group;
     
     const updatedGuest: Guest = {
       ...guest,
       name,
       phone,
-      group,
+      group: finalGroup,
       attending: attending === 'notAnswered' ? null : attending === 'attending',
       numberOfGuests: attending === 'attending' ? numberOfGuests : 0,
       answered: attending !== 'notAnswered'
@@ -65,12 +89,51 @@ const GuestEditForm = ({ guest, onSave, onCancel }: GuestEditFormProps) => {
         
         <div className="grid gap-2">
           <Label htmlFor="group">קבוצה</Label>
-          <Input
-            id="group"
-            value={group}
-            onChange={(e) => setGroup(e.target.value)}
-            dir="rtl"
-          />
+          {isCustomGroup ? (
+            <div className="flex gap-2">
+              <Input
+                id="customGroup"
+                value={customGroup}
+                onChange={(e) => setCustomGroup(e.target.value)}
+                dir="rtl"
+                placeholder="הזן קבוצה מותאמת אישית"
+              />
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => setIsCustomGroup(false)}
+                className="whitespace-nowrap"
+              >
+                בחר מהרשימה
+              </Button>
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              <Select 
+                value={group} 
+                onValueChange={setGroup}
+              >
+                <SelectTrigger className="w-full text-right" dir="rtl">
+                  <SelectValue placeholder="בחר קבוצה" />
+                </SelectTrigger>
+                <SelectContent dir="rtl">
+                  {groups.map((g) => (
+                    <SelectItem key={g} value={g}>
+                      {g}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => setIsCustomGroup(true)}
+                className="whitespace-nowrap"
+              >
+                קבוצה אחרת
+              </Button>
+            </div>
+          )}
         </div>
         
         <div className="grid gap-2">
