@@ -75,7 +75,7 @@ const RsvpPage = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[url('/henna-pattern.svg')] bg-cover p-4">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-[url('/henna-pattern.svg')] bg-cover p-4">
       <div className="p-8 rounded-xl bg-white bg-opacity-20 backdrop-blur-lg border border-white border-opacity-20 shadow-xl w-full max-w-md mx-auto">
         {!submitted ? (
           <div className="text-center">
@@ -161,6 +161,11 @@ const RsvpPage = () => {
             </div>
           </div>
         )}
+      </div>
+      
+      {/* Powered by footer */}
+      <div className="mt-6 text-white text-opacity-80 text-sm">
+        Powered by Lior Moyal
       </div>
     </div>
   );

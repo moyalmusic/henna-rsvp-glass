@@ -1,7 +1,7 @@
 
 import { Guest } from "@/types";
 import * as XLSX from 'xlsx';
-import { replaceAllGuests } from "@/lib/localStorage";
+import { replaceAllGuests, getGuests } from "@/lib/localStorage";
 
 // Function to import guests from Excel file
 export const importGuestsFromExcel = (file: File): Promise<Guest[]> => {
@@ -19,7 +19,7 @@ export const importGuestsFromExcel = (file: File): Promise<Guest[]> => {
         const jsonData = XLSX.utils.sheet_to_json(worksheet);
         
         // Map to our Guest interface
-        const guests: Guest[] = jsonData.map((row: any, index) => ({
+        const newGuests: Guest[] = jsonData.map((row: any, index) => ({
           id: row.id || `guest${Date.now() + index}`,
           name: row.name || row['שם מלא'] || '',
           phone: row.phone || row['טלפון'] || '',
@@ -29,7 +29,36 @@ export const importGuestsFromExcel = (file: File): Promise<Guest[]> => {
           answered: false
         }));
         
-        resolve(guests);
+        // Merge with existing guests instead of replacing them
+        const existingGuests = getGuests();
+        
+        // Create a map of existing guests by phone number for quick lookup
+        const existingGuestsMap = new Map();
+        existingGuests.forEach(guest => {
+          existingGuestsMap.set(guest.phone, guest);
+        });
+        
+        // Update existing guests or add new ones
+        newGuests.forEach(newGuest => {
+          if (newGuest.phone) {
+            const existingGuest = existingGuestsMap.get(newGuest.phone);
+            if (existingGuest) {
+              // If this guest already exists, preserve their attendance data
+              newGuest.attending = existingGuest.attending;
+              newGuest.numberOfGuests = existingGuest.numberOfGuests;
+              newGuest.answered = existingGuest.answered;
+              existingGuestsMap.set(newGuest.phone, newGuest);
+            } else {
+              // Add new guest to the map
+              existingGuestsMap.set(newGuest.phone, newGuest);
+            }
+          }
+        });
+        
+        // Convert map values back to array
+        const mergedGuests = Array.from(existingGuestsMap.values());
+        
+        resolve(mergedGuests);
       } catch (error) {
         reject(error);
       }

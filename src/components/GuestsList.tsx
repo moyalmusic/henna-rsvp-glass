@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { getGuests, updateGuest, deleteGuest, getStats, getWhatsAppMessageTemplate } from '@/lib/localStorage';
 import { Guest, AttendanceStatus } from '@/types';
@@ -7,13 +8,23 @@ import {
   Dialog, 
   DialogContent, 
   DialogHeader, 
-  DialogTitle, 
-  DialogFooter 
+  DialogTitle,
+  DialogFooter
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Check, X, Phone } from 'lucide-react';
+import { Check, X, Phone, Trash2 } from 'lucide-react';
 import GuestEditForm from './GuestEditForm';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const GuestsList = () => {
   const [guests, setGuests] = useState<Guest[]>([]);
@@ -29,6 +40,11 @@ const GuestsList = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filter, setFilter] = useState<AttendanceStatus | 'all'>('all');
   const { toast } = useToast();
+  
+  // Multi-select functionality
+  const [selectedGuests, setSelectedGuests] = useState<Set<string>>(new Set());
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [selectAll, setSelectAll] = useState(false);
 
   useEffect(() => {
     loadGuests();
@@ -87,15 +103,13 @@ const GuestsList = () => {
   };
 
   const handleDeleteGuest = (id: string) => {
-    if (window.confirm('האם אתה בטוח שברצונך למחוק אורח זה?')) {
-      deleteGuest(id);
-      loadGuests();
-      
-      toast({
-        title: 'מחיקת אורח',
-        description: 'האורח נמחק בהצלחה',
-      });
-    }
+    deleteGuest(id);
+    loadGuests();
+    
+    toast({
+      title: 'מחיקת אורח',
+      description: 'האורח נמחק בהצלחה',
+    });
   };
 
   const handleImportExcel = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -105,27 +119,13 @@ const GuestsList = () => {
     try {
       const importedGuests = await importGuestsFromExcel(file);
       
-      // Preserve existing attendance data
-      const existingGuests = getGuests();
-      const mergedGuests = importedGuests.map(newGuest => {
-        const existingGuest = existingGuests.find(g => g.phone === newGuest.phone);
-        if (existingGuest) {
-          return {
-            ...newGuest,
-            attending: existingGuest.attending,
-            numberOfGuests: existingGuest.numberOfGuests,
-            answered: existingGuest.answered
-          };
-        }
-        return newGuest;
-      });
-      
-      localStorage.setItem('henna-guests', JSON.stringify(mergedGuests));
+      // Use imported guests (they're already merged in the importGuestsFromExcel function)
+      localStorage.setItem('henna-guests', JSON.stringify(importedGuests));
       loadGuests();
       
       toast({
         title: 'ייבוא אורחים',
-        description: `${importedGuests.length} אורחים יובאו בהצלחה`,
+        description: `האורחים יובאו בהצלחה`,
       });
     } catch (error) {
       console.error('Error importing Excel file:', error);
@@ -164,6 +164,55 @@ const GuestsList = () => {
     localStorage.setItem('henna-guests', JSON.stringify(updatedGuests));
     loadGuests();
     handleEditGuest(newGuest);
+  };
+
+  // Multi-select handlers
+  const toggleSelectGuest = (id: string) => {
+    const newSelected = new Set(selectedGuests);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedGuests(newSelected);
+  };
+
+  const handleSelectAll = () => {
+    if (selectAll) {
+      // Unselect all
+      setSelectedGuests(new Set());
+    } else {
+      // Select all filtered guests
+      const allIds = filteredGuests.map(guest => guest.id);
+      setSelectedGuests(new Set(allIds));
+    }
+    setSelectAll(!selectAll);
+  };
+
+  const handleDeleteSelected = () => {
+    setIsDeleteDialogOpen(true);
+  };
+
+  const confirmDeleteSelected = () => {
+    // Delete all selected guests
+    selectedGuests.forEach(id => {
+      deleteGuest(id);
+    });
+    
+    // Clear selection
+    setSelectedGuests(new Set());
+    setSelectAll(false);
+    
+    // Refresh guest list
+    loadGuests();
+    
+    // Close dialog
+    setIsDeleteDialogOpen(false);
+    
+    toast({
+      title: 'מחיקת אורחים',
+      description: `${selectedGuests.size} אורחים נמחקו בהצלחה`,
+    });
   };
 
   const getStatusBadge = (attending: boolean | null) => {
@@ -242,6 +291,17 @@ const GuestsList = () => {
             <Button onClick={handleExportExcel}>
               ייצא לאקסל
             </Button>
+
+            {selectedGuests.size > 0 && (
+              <Button 
+                variant="destructive"
+                onClick={handleDeleteSelected}
+                className="flex items-center gap-1"
+              >
+                <Trash2 size={16} />
+                מחק נבחרים ({selectedGuests.size})
+              </Button>
+            )}
           </div>
         </div>
         
@@ -283,6 +343,14 @@ const GuestsList = () => {
           <table className="w-full border-collapse">
             <thead>
               <tr className="border-b-2 border-gray-200">
+                <th className="text-right p-3">
+                  <input 
+                    type="checkbox" 
+                    checked={selectAll}
+                    onChange={handleSelectAll}
+                    className="rounded border-gray-300 text-primary focus:ring-primary"
+                  />
+                </th>
                 <th className="text-right p-3">שם</th>
                 <th className="text-right p-3">טלפון</th>
                 <th className="text-right p-3">קבוצה</th>
@@ -295,6 +363,14 @@ const GuestsList = () => {
               {filteredGuests.length > 0 ? (
                 filteredGuests.map((guest) => (
                   <tr key={guest.id} className="border-b border-gray-200 hover:bg-gray-50">
+                    <td className="p-3">
+                      <input 
+                        type="checkbox" 
+                        checked={selectedGuests.has(guest.id)}
+                        onChange={() => toggleSelectGuest(guest.id)}
+                        className="rounded border-gray-300 text-primary focus:ring-primary"
+                      />
+                    </td>
                     <td className="p-3">{guest.name}</td>
                     <td className="p-3 whitespace-nowrap">{guest.phone}</td>
                     <td className="p-3">{guest.group}</td>
@@ -331,7 +407,7 @@ const GuestsList = () => {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={6} className="p-4 text-center">לא נמצאו אורחים</td>
+                  <td colSpan={7} className="p-4 text-center">לא נמצאו אורחים</td>
                 </tr>
               )}
             </tbody>
@@ -355,6 +431,24 @@ const GuestsList = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent className="rtl-grid">
+          <AlertDialogHeader>
+            <AlertDialogTitle>האם אתה בטוח?</AlertDialogTitle>
+            <AlertDialogDescription>
+              פעולה זו תמחק {selectedGuests.size} אורחים מהרשימה. פעולה זו לא ניתנת לביטול.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="mr-auto">ביטול</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteSelected} className="bg-red-600 hover:bg-red-700">
+              מחק אורחים
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
